@@ -1,5 +1,5 @@
 {
-  "name": "fazenda-light-monitor",
+  "name": "light-monitor",
   "private": true,
   "type": "module",
   "scripts": {"test": "node --test tests/server.test.mjs"},

@@ -16,7 +16,7 @@
 
 ## 2. Заповніть конфігурацію
 
-У папці `esp32_firmware/FazendaMonitor` зробіть копію `config.example.h` з назвою **`config.h`**. Відредагуйте тільки рядки зі значеннями, залиште лапки й крапки з комою.
+У папці `esp32_firmware/LightMonitor` зробіть копію `config.example.h` з назвою **`config.h`**. Відредагуйте тільки рядки зі значеннями, залиште лапки й крапки з комою.
 
 | Поле | Що вставити |
 | --- | --- |
@@ -31,7 +31,7 @@
 ## 3. Відкрийте прошивку та виберіть плату
 
 1. Підключіть ESP32 до комп’ютера.
-2. У **File → Open** відкрийте `esp32_firmware/FazendaMonitor/FazendaMonitor.ino`. Поруч мають бути вкладки `config.h` і `trusted_roots.h`.
+2. У **File → Open** відкрийте `esp32_firmware/LightMonitor/LightMonitor.ino`. Поруч мають бути вкладки `config.h` і `trusted_roots.h`.
 3. У **Select Board → Select other board and port…** виберіть **DOIT ESP32 DEVKIT V1** та USB-порт плати. Для сумісної класичної ESP32-WROOM-32 альтернативою є **ESP32 Dev Module**.
 4. Або скористайтеся **Tools → Board** і **Tools → Port**. На Mac меню Tools знаходиться в системному рядку вгорі екрана; у повноекранному режимі наведіть туди курсор.
 

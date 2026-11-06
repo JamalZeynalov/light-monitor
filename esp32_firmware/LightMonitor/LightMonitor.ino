@@ -1,4 +1,4 @@
-// Автономний монітор фазенди. Плата: класична ESP32 DevKit V1 / ESP32-WROOM-32.
+// Автономний монітор світла вдома. Плата: класична ESP32 DevKit V1 / ESP32-WROOM-32.
 // Після прошивання комп'ютер не потрібний: достатньо USB-живлення та Wi-Fi.
 #include <WiFi.h>
 #include <WiFiManager.h>
@@ -23,8 +23,8 @@ int lastHttpCode = 0;
 void showStatus() {
   String page = "<!doctype html><html lang='uk'><meta charset='utf-8'>"
     "<meta name='viewport' content='width=device-width,initial-scale=1'>"
-    "<meta http-equiv='refresh' content='10'><title>Фазенда</title>"
-    "<body style='font:20px sans-serif;padding:24px'><h1>🏡 Фазенда</h1>";
+    "<meta http-equiv='refresh' content='10'><title>Світло вдома</title>"
+    "<body style='font:20px sans-serif;padding:24px'><h1>🏡 Світло вдома</h1>";
   page += WiFi.status() == WL_CONNECTED ? "<p>Wi-Fi підключено ✅</p>" : "<p>Wi-Fi недоступний</p>";
   page += "<p>IP: " + WiFi.localIP().toString() + "</p>";
   if (hasSuccess) page += "<p>Сервер прийняв сигнал " + String((millis()-lastSuccess)/1000) + " с тому.</p>";
@@ -41,13 +41,13 @@ void showStatus() {
 void configureWifi(bool forcePortal) {
   statusServer.stop();
   wifiManager.setDebugOutput(false); // Не друкуємо паролі та секрети.
-  wifiManager.setHostname("fazenda-monitor");
+  wifiManager.setHostname("light-monitor");
   wifiManager.setConnectTimeout(20);
   wifiManager.setConfigPortalTimeout(180);
-  Serial.println("Wi-Fi setup: Fazenda-Setup; open http://192.168.4.1");
+  Serial.println("Wi-Fi setup: LightMonitor-Setup; open http://192.168.4.1");
   bool ok = forcePortal
-    ? wifiManager.startConfigPortal("Fazenda-Setup", SETUP_AP_PASSWORD)
-    : wifiManager.autoConnect("Fazenda-Setup", SETUP_AP_PASSWORD);
+    ? wifiManager.startConfigPortal("LightMonitor-Setup", SETUP_AP_PASSWORD)
+    : wifiManager.autoConnect("LightMonitor-Setup", SETUP_AP_PASSWORD);
   if (!ok) {
     Serial.println("Wi-Fi timeout; restarting.");
     delay(1000);
@@ -67,7 +67,7 @@ bool sendHeartbeat() {
   HTTPClient http;
   http.setConnectTimeout(5000);
   http.setTimeout(8000);
-  http.setUserAgent("FazendaESP32/1.0");
+  http.setUserAgent("LightMonitorESP32/1.0");
   // Перенаправлення не дозволяємо: секрет має потрапляти тільки нашому Worker.
   http.setFollowRedirects(HTTPC_DISABLE_FOLLOW_REDIRECTS);
   if (!http.begin(tls, String(WORKER_URL) + "/heartbeat")) return false;
@@ -83,7 +83,7 @@ bool sendHeartbeat() {
 void setup() {
   Serial.begin(115200);
   pinMode(WIFI_SETUP_BUTTON_PIN, INPUT_PULLUP);
-  WiFi.setHostname("fazenda-monitor");
+  WiFi.setHostname("light-monitor");
   WiFi.mode(WIFI_STA);
   WiFi.setAutoReconnect(true);
   configureWifi(false);
@@ -91,7 +91,7 @@ void setup() {
   configTime(0, 0, "pool.ntp.org", "time.cloudflare.com", "time.google.com");
   statusServer.on("/", HTTP_GET, showStatus);
   statusServer.begin();
-  MDNS.begin("fazenda-monitor");
+  MDNS.begin("light-monitor");
   MDNS.addService("http", "tcp", 80);
   Serial.print("Status page: http://");
   Serial.println(WiFi.localIP());

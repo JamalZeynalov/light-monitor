@@ -6,7 +6,7 @@
 
 1. Відкрийте **Workers & Pages → Create application**.
 2. Виберіть **Start with Hello World** або шаблон Hello World для Worker. Варіант завантаження статичного сайту для цього коду не підходить.
-3. Задайте назву, наприклад `fazenda-light-monitor`, і натисніть **Deploy**.
+3. Задайте назву, наприклад `light-monitor`, і натисніть **Deploy**.
 4. Збережіть адресу `https://НАЗВА.ВАШ-ПІДДОМЕН.workers.dev` у `WORKER_URL` локального `.env`. Без `/heartbeat` у кінці.
 
 Поки залиште стартовий код. Спершу підготуйте базу та змінні.
