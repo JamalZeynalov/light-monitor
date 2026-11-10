@@ -9,6 +9,7 @@
 // Відключення інтернету і живлення тут НЕ розрізняються.
 
 const OFFLINE_AFTER_SECONDS = 120; // Тривога після 2 хвилин без сигналу.
+const HEARTBEAT_SECONDS = 60; // Очікуваний інтервал сигналів ESP32.
 const SEND_TIMEOUT_MS = 8000;
 const MAX_DELIVERIES_PER_RUN = 8; // Решта отримувачів — у наступному циклі.
 
@@ -54,6 +55,10 @@ async function heartbeat(env, now) {
   await env.DB.batch([
     env.DB.prepare(`INSERT INTO events(kind, created_at)
       SELECT 'up', ? FROM monitor WHERE id=1 AND status='down'`).bind(now),
+    env.DB.prepare(`INSERT INTO power_periods(event_id,kind,started_at)
+      SELECT (SELECT MAX(id) FROM events),'up',? FROM monitor WHERE id=1 AND status='down'`).bind(now),
+    env.DB.prepare(`INSERT OR IGNORE INTO power_periods(event_id,kind,started_at)
+      SELECT 0,'up',? FROM monitor WHERE id=1 AND status='unknown'`).bind(now),
     env.DB.prepare(`UPDATE monitor SET status='up',
       last_seen=MAX(COALESCE(last_seen, 0), ?) WHERE id=1`).bind(now),
   ]);
@@ -66,6 +71,10 @@ async function checkOffline(env, now) {
     env.DB.prepare(`INSERT INTO events(kind, created_at)
       SELECT 'down', ? FROM monitor
       WHERE id=1 AND status='up' AND last_seen<=?`).bind(now, cutoff),
+    // Початок відключення оцінюємо за першим пропущеним сигналом.
+    env.DB.prepare(`INSERT INTO power_periods(event_id,kind,started_at)
+      SELECT (SELECT MAX(id) FROM events),'down',last_seen+? FROM monitor
+      WHERE id=1 AND status='up' AND last_seen<=?`).bind(HEARTBEAT_SECONDS, cutoff),
     env.DB.prepare(`UPDATE monitor SET status='down'
       WHERE id=1 AND status='up' AND last_seen<=?`).bind(cutoff),
     env.DB.prepare("UPDATE monitor SET last_cron=? WHERE id=1").bind(now),
@@ -94,7 +103,14 @@ async function eventText(event) {
     new TextEncoder().encode(`${event.id}:${event.created_at}:${event.kind}`));
   const index = new DataView(digest).getUint32(0) % choices.length;
   const prefix = event.kind === "test" ? "🧪 ТЕСТ\n" : "";
-  return `${prefix}${choices[index]}`;
+  const main = `${prefix}${choices[index]}`;
+  if (event.started_at == null) return main; // Тест або ручне повідомлення.
+  if (event.previous_start == null) return main + "\n⏱ Початок попереднього періоду невідомий.";
+  const minutes = Math.max(0, Math.floor((event.started_at - event.previous_start) / 60));
+  const hours = Math.floor(minutes / 60);
+  const duration = [hours && `${hours} год`, minutes % 60 && `${minutes % 60} хв`]
+    .filter(Boolean).join(" ") || "менше хвилини";
+  return main + "\n" + (event.kind === "up" ? "🌚 Без світла були " : "💡 Світло було ") + duration + ".";
 }
 
 // Помилка одного чату не перериває доставку іншим. HTTP 429 враховується.
@@ -135,8 +151,11 @@ async function flushOutbox(env) {
 
   const now = Math.floor(Date.now() / 1000);
   const { results: pending } = await env.DB.prepare(`
-    SELECT d.event_id, d.chat_id, e.kind, e.created_at
+    SELECT d.event_id, d.chat_id, e.kind, e.created_at, p.started_at,
+      (SELECT prev.started_at FROM power_periods prev WHERE prev.event_id < p.event_id
+       ORDER BY prev.event_id DESC LIMIT 1) AS previous_start
     FROM deliveries d JOIN events e ON e.id=d.event_id
+    LEFT JOIN power_periods p ON p.event_id=e.id
     WHERE d.delivered_at IS NULL AND d.retry_at<=? AND d.lease_until<=?
       AND NOT EXISTS (
         SELECT 1 FROM deliveries older

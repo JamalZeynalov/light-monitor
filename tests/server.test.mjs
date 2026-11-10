@@ -95,3 +95,18 @@ test('D1 failures are logged without sending technical messages to Telegram',asy
   await assert.rejects(cron(env),/Monitor cron failed/);
   assert.equal(messages.length,0);
 });
+
+test('second line measures physical signal intervals, independent of manual messages, late cron and retries',async()=>{
+  const env=environment(); await request(env,'/heartbeat');
+  now+=339*60; await request(env,'/heartbeat');
+  now+=10; await env.DB.prepare("INSERT INTO events(kind,created_at) VALUES ('up',?)").bind(now).run();
+  await request(env,'/test');
+  assert.ok(messages.slice(0,2).every(x=>!x.text.includes('\n')));
+  await cron(env); // Завершити доставку тесту до імітації збою одного чату.
+  now+=170; rejectChat='111'; await cron(env); await cron(env);
+  const down=messages.find(x=>x.text.endsWith('💡 Світло було 5 год 40 хв.'));
+  assert.ok(down); assert.equal(down.text.split('\n').length,2);
+  now+=133*60; rejectChat=null; await request(env,'/heartbeat'); await cron(env);
+  assert.ok(messages.filter(x=>x.text===down.text).length>=2);
+  assert.equal(messages.filter(x=>x.text.endsWith('🌚 Без світла були 2 год 15 хв.')).length,2);
+});

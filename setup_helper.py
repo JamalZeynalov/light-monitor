@@ -10,7 +10,9 @@ import secrets
 import ssl
 import sys
 import time
+from datetime import datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 from urllib.request import Request, urlopen
 from urllib.parse import urlsplit
 from urllib.error import HTTPError, URLError
@@ -67,11 +69,38 @@ def chat_ids():
         print("Надішліть боту нове повідомлення й повторіть. Інший сервіс бота може забирати updates.")
 
 
-def server():
+def worker_url():
     base = setting("WORKER_URL").rstrip("/")
     parsed = urlsplit(base)
     if parsed.scheme != "https" or not (parsed.hostname or "").endswith(".workers.dev") or parsed.path or parsed.query or parsed.fragment or parsed.username or parsed.password or parsed.port:
         raise ValueError("Потрібна коренева HTTPS-адреса вашого Worker на workers.dev")
+    return base
+
+
+def last_signal():
+    """Читає час останнього прийнятого сигналу та стан монітора."""
+    result = api(worker_url() + "/status", setting("DEVICE_SECRET"))
+    seen = result["last_seen"]
+    if seen is None:
+        print("Сервер ще не отримував сигналів.")
+        return
+    stamp = datetime.fromtimestamp(seen, ZoneInfo("Europe/Kyiv"))
+    seconds = max(0, result["server_time"] - seen)
+    minutes, seconds = divmod(seconds, 60)
+    hours, minutes = divmod(minutes, 60)
+    if hours:
+        age = f"{hours} год {minutes} хв"
+    elif minutes:
+        age = f"{minutes} хв {seconds} с"
+    else:
+        age = f"{seconds} с"
+    print(f"Останній сигнал: {stamp:%d.%m.%Y %H:%M:%S} (Київ), {age} тому.")
+    status = {"up": "на зв’язку", "down": "сигнал зник"}.get(result["status"], "очікування")
+    print(f"Стан за даними монітора: {status}.")
+
+
+def server():
+    base = worker_url()
     token = setting("DEVICE_SECRET")
     while True:
         print("\n1 — тестове повідомлення Telegram; 2 — один сигнал ESP32; 3 — стан сервера; 0 — назад")
@@ -97,7 +126,7 @@ def server():
 
 def main():
     while True:
-        print("\n1 — створити DEVICE_SECRET; 2 — знайти Telegram chat ID; 3 — перевірити Worker; 0 — вихід")
+        print("\n1 — створити DEVICE_SECRET; 2 — знайти Telegram chat ID; 3 — перевірити Worker; 4 — час останнього сигналу; 0 — вихід")
         choice = input("> ").strip()
         try:
             if choice == "0":
@@ -109,6 +138,8 @@ def main():
                 chat_ids()
             elif choice == "3":
                 server()
+            elif choice == "4":
+                last_signal()
         except HTTPError as error:
             print(f"HTTP {error.code}. 401: перевірте ключ/токен; 500: перевірте Worker Logs.")
             if error.code == 403:

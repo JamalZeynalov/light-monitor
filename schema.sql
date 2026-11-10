@@ -33,3 +33,10 @@ CREATE INDEX IF NOT EXISTS deliveries_pending
   ON deliveries(delivered_at, retry_at, event_id);
 CREATE INDEX IF NOT EXISTS deliveries_chat
   ON deliveries(chat_id, delivered_at, event_id);
+
+-- Початок кожного періоду за сигналом плати; 0 — перша тиха активація.
+CREATE TABLE IF NOT EXISTS power_periods (
+  event_id INTEGER PRIMARY KEY,
+  kind TEXT NOT NULL CHECK (kind IN ('up','down')),
+  started_at INTEGER NOT NULL
+);
